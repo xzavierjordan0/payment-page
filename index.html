@@ -81,144 +81,90 @@
     <!-- Replace YOUR_CLIENT_ID below -->
     <script src="https://www.paypal.com/sdk/js?client-id=BAAe2tk0t2p_fmA1lmp1UX-E5QsJUsuJ_1LgSCR_xirfpNEQ4RHVgWqAtQ4TBqowJmlIGJ5I0WP3-bFlVQ&currency=USD&intent=capture&disable-funding=credit,bancontact,eps,giropay,ideal,mercadopago,mybank,p24,sepa,sofort,venmo&enable-funding=card"></script>
 
-    <script>
-        let currentAmount = "50.00";
+	<script>
+		let currentAmount = "50.00";
 
-        // Amount controls
-        document.getElementById('edit-amount').addEventListener('click', function() {
-            document.getElementById('amount-wrapper').classList.toggle('show');
-        });
+		document.getElementById('edit-amount').addEventListener('click', () => {
+			document.getElementById('amount-wrapper').classList.toggle('show');
+		});
 
-        document.getElementById('set-amount-btn').addEventListener('click', function() {
-            let val = document.getElementById('custom-amount').value;
-            if (val && parseFloat(val) > 0) {
-                currentAmount = parseFloat(val).toFixed(2);
-                document.getElementById('display-amount').textContent = '$' + currentAmount;
-                document.getElementById('amount-wrapper').classList.remove('show');
-            }
-        });
+		document.getElementById('set-amount-btn').addEventListener('click', () => {
+			let val = document.getElementById('custom-amount').value;
+			if (val && parseFloat(val) > 0) {
+				currentAmount = parseFloat(val).toFixed(2);
+				document.getElementById('display-amount').textContent = '$' + currentAmount;
+				document.getElementById('amount-wrapper').classList.remove('show');
+			}
+		});
 
-        // Wait for PayPal SDK to load
-        if (paypal.HostedFields && paypal.HostedFields.isEligible()) {
-            paypal.HostedFields.render({
-                styles: {
-                    'input': {
-                        'font-size': '15px',
-                        'font-family': '-apple-system, BlinkMacSystemFont, sans-serif',
-                        'color': '#222'
-                    },
-                    '.invalid': {
-                        'color': '#c72e2e'
-                    }
-                },
-                fields: {
-                    number: {
-                        selector: '#card-number',
-                        placeholder: '1234 5678 9012 3456'
-                    },
-                    cvv: {
-                        selector: '#card-cvv',
-                        placeholder: '123'
-                    },
-                    expirationDate: {
-                        selector: '#card-expiry',
-                        placeholder: 'MM/YY'
-                    }
-                }
-            }).then(function(hostedFields) {
-                var payBtn = document.getElementById('pay-button');
+		const BACKEND = "https://your-backend.onrender.com"; // ← Replace with Render URL
 
-                // Enable pay button when card is valid
-                hostedFields.on('cardTypeChange', function(event) {
-                    if (event.cards.length === 1 && event.cards[0].code) {
-                        payBtn.disabled = false;
-                    }
-                });
+		if (paypal.HostedFields && paypal.HostedFields.isEligible()) {
+			paypal.HostedFields.render({
+				styles: {
+					'input': {
+						'font-size': '15px',
+						'font-family': '-apple-system, BlinkMacSystemFont, sans-serif',
+						'color': '#222'
+					},
+					'.invalid': { 'color': '#c72e2e' }
+				},
+				fields: {
+					number: { selector: '#card-number', placeholder: '1234 5678 9012 3456' },
+					cvv: { selector: '#card-cvv', placeholder: '123' },
+					expirationDate: { selector: '#card-expiry', placeholder: 'MM/YY' }
+				}
+			}).then(hostedFields => {
+				const payBtn = document.getElementById('pay-button');
 
-                // Handle pay button click
-                payBtn.addEventListener('click', function() {
-                    payBtn.disabled = true;
-                    payBtn.textContent = 'Processing...';
-                    document.getElementById('error-message').style.display = 'none';
+				hostedFields.on('validityChange', () => {
+					const state = hostedFields.getState();
+					const allValid = Object.values(state.fields).every(f => f.isValid);
+					payBtn.disabled = !allValid;
+				});
 
-                    var state = hostedFields.getState();
-                    var cardValid = Object.keys(state.fields).every(function(key) {
-                        return state.fields[key].isValid;
-                    });
+				payBtn.addEventListener('click', () => {
+					payBtn.disabled = true;
+					payBtn.textContent = 'Processing...';
+					document.getElementById('error-message').style.display = 'none';
 
-                    if (!cardValid) {
-                        document.getElementById('error-message').textContent = 'Please check your card details and try again.';
-                        document.getElementById('error-message').style.display = 'block';
-                        payBtn.disabled = false;
-                        payBtn.textContent = 'Pay Now';
-                        return;
-                    }
+					hostedFields.submit({ contingencies: ['3D_SECURE'] })
+						.then(payload => {
 
-                    // Create order with DUMMY billing data passed silently
-                    hostedFields.submit({
-                        contingencies: ['3D_SECURE']
-                    }).then(function(payload) {
-                        return paypal.Buttons({
-                            createOrder: function() {
-                                return fetch('https://api.paypal.com/v2/checkout/orders', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json'
-                                    },
-                                    body: JSON.stringify({
-                                        intent: 'CAPTURE',
-                                        purchase_units: [{
-                                            amount: {
-                                                currency_code: 'USD',
-                                                value: currentAmount
-                                            }
-                                        }],
-                                        payer: {
-                                            name: {
-                                                given_name: 'Michael',
-                                                surname: 'Anderson'
-                                            },
-                                            address: {
-                                                address_line_1: '123 Main Street',
-                                                admin_area_2: 'New York',
-                                                admin_area_1: 'NY',
-                                                postal_code: '10001',
-                                                country_code: 'US'
-                                            }
-                                        }
-                                    })
-                                }).then(function(res) {
-                                    return res.json();
-                                }).then(function(data) {
-                                    return data.id;
-                                });
-                            },
-                            onApprove: function(data, actions) {
-                                return actions.order.capture().then(function(details) {
-                                    document.getElementById('success-message').style.display = 'block';
-                                    document.getElementById('pay-button').style.display = 'none';
-                                    document.getElementById('payment-container').style.display = 'none';
-                                });
-                            },
-                            onError: function(err) {
-                                document.getElementById('error-message').textContent = 'Payment could not be processed. Please check your card information.';
-                                document.getElementById('error-message').style.display = 'block';
-                                payBtn.disabled = false;
-                                payBtn.textContent = 'Pay Now';
-                            }
-                        }).render('body');
-                    }).catch(function(err) {
-                        document.getElementById('error-message').textContent = 'Payment could not be processed. Please try again.';
-                        document.getElementById('error-message').style.display = 'block';
-                        payBtn.disabled = false;
-                        payBtn.textContent = 'Pay Now';
-                    });
-                });
-            });
-        } else {
-            document.getElementById('pay-button').textContent = 'Card payments unavailable';
-            document.getElementById('pay-button').disabled = true;
-        }
-    </script>
+							return fetch(`${BACKEND}/create-order`, {
+								method: "POST",
+								headers: { "Content-Type": "application/json" },
+								body: JSON.stringify({ amount: currentAmount })
+							})
+							.then(res => res.json())
+							.then(order => {
+
+								return fetch(`${BACKEND}/capture-order`, {
+									method: "POST",
+									headers: { "Content-Type": "application/json" },
+									body: JSON.stringify({ orderID: order.id })
+								});
+							});
+						})
+						.then(res => res.json())
+						.then(data => {
+							document.getElementById('success-message').style.display = 'block';
+							payBtn.style.display = 'none';
+						})
+						.catch(err => {
+							document.getElementById('error-message').textContent =
+								'Payment failed. Please check your card.';
+							document.getElementById('error-message').style.display = 'block';
+							payBtn.disabled = false;
+							payBtn.textContent = 'Pay Now';
+						});
+				});
+			});
+		} else {
+			document.getElementById('pay-button').textContent = 'Card payments unavailable';
+			document.getElementById('pay-button').disabled = true;
+		}
+	</script>
+
 </body>
 </html>
