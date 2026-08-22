@@ -55,6 +55,27 @@
 
   <p>Total: <strong id="total-display">$10.00</strong></p>
 
+  <h3>Billing Info</h3>
+
+  <label>
+    Name on card
+    <input id="bill-name" type="text" placeholder="John Doe">
+  </label>
+
+  <label>
+    Country
+    <select id="bill-country">
+      <option value="US" selected>United States</option>
+      <option value="CA">Canada</option>
+      <option value="GB">United Kingdom</option>
+      <option value="AU">Australia</option>
+      <option value="DE">Germany</option>
+      <option value="FR">France</option>
+      <option value="BR">Brazil</option>
+      <option value="MX">Mexico</option>
+    </select>
+  </label>
+
   <h3>Card Details</h3>
 
   <div class="card-field" id="paypal-card-fields-number"></div>
@@ -63,12 +84,7 @@
 
   <button id="pay-button">Pay Now</button>
 
-  <!-- PayPal ACDC SDK -->
-  <script
-    async
-    src="https://www.paypal.com/web-sdk/v6/core"
-    onload="onPayPalWebSdkLoaded()">
-  </script>
+  <script async src="https://www.paypal.com/web-sdk/v6/core" onload="onPayPalWebSdkLoaded()"></script>
 
   <script>
     const BACKEND_URL = "https://paypal-backend-ni4v.onrender.com";
@@ -99,7 +115,6 @@
         body: JSON.stringify({ amount: currentTotal.toFixed(2) })
       });
       const data = await res.json();
-      console.log("Order:", data);
       return data.id;
     }
 
@@ -113,50 +128,36 @@
     }
 
     async function onPayPalWebSdkLoaded() {
-      try {
-        const sdk = await window.paypal.createInstance({
-          clientId: "BAAlApj0QpUS9VKQNYnutXDwgf3OMDDHOoGt5NVpJNdyTzcBjFYK4wf2053lfAdG5KlUZDR8iA4ppgq5Xc",
-          components: ["card-fields"],
-          pageType: "checkout",
-          locale: "en-US",
-        });
+      const sdk = await window.paypal.createInstance({
+        clientId: "BAAlApj0QpUS9VKQNYnutXDwgf3OMDDHOoGt5NVpJNdyTzcBjFYK4wf2053lfAdG5KlUZDR8iA4ppgq5Xc",
+        components: ["card-fields"],
+        pageType: "checkout",
+        locale: "en-US",
+      });
 
-        const cardSession = sdk.createCardFieldsOneTimePaymentSession({
-          createOrder: () => createOrder()
-        });
+      const cardSession = sdk.createCardFieldsOneTimePaymentSession({
+        createOrder: () => createOrder()
+      });
 
-        const numberField = cardSession.createCardFieldsComponent({ type: "number" });
-        const expiryField = cardSession.createCardFieldsComponent({ type: "expiry" });
-        const cvvField = cardSession.createCardFieldsComponent({ type: "cvv" });
+      const numberField = cardSession.createCardFieldsComponent({ type: "number" });
+      const expiryField = cardSession.createCardFieldsComponent({ type: "expiry" });
+      const cvvField = cardSession.createCardFieldsComponent({ type: "cvv" });
 
-        document.querySelector("#paypal-card-fields-number").appendChild(numberField);
-        document.querySelector("#paypal-card-fields-expiry").appendChild(expiryField);
-        document.querySelector("#paypal-card-fields-cvv").appendChild(cvvField);
+      document.querySelector("#paypal-card-fields-number").appendChild(numberField);
+      document.querySelector("#paypal-card-fields-expiry").appendChild(expiryField);
+      document.querySelector("#paypal-card-fields-cvv").appendChild(cvvField);
 
-        document.getElementById("pay-button").addEventListener("click", async () => {
-          try {
-            const orderId = await createOrder();
-            const { data, state } = await cardSession.submit(orderId);
+      document.getElementById("pay-button").addEventListener("click", async () => {
+        const orderId = await createOrder();
+        const { data, state } = await cardSession.submit(orderId);
 
-            console.log("Submit:", state, data);
-
-            if (state === "succeeded") {
-              const capture = await captureOrder(data.orderId);
-              console.log("Capture:", capture);
-              alert("Payment successful!");
-            } else {
-              alert("Payment failed. Try again.");
-            }
-
-          } catch (err) {
-            console.error("Error:", err);
-            alert("Checkout error. Try again.");
-          }
-        });
-
-      } catch (err) {
-        console.error("SDK init failed:", err);
-      }
+        if (state === "succeeded") {
+          const capture = await captureOrder(data.orderId);
+          alert("Payment successful!");
+        } else {
+          alert("Payment failed. Try again.");
+        }
+      });
     }
   </script>
 
