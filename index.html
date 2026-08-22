@@ -121,7 +121,6 @@
     function getBillingData() {
       const name = document.getElementById("bill-name").value.trim();
       const country = document.getElementById("bill-country").value;
-
       if (!name) {
         document.getElementById("billing-error").style.display = "block";
         return null;
@@ -143,6 +142,8 @@
         })
       });
       const data = await res.json();
+      console.log("Order response:", data);
+      if (!data.id) throw new Error("No order ID: " + JSON.stringify(data));
       return data.id;
     }
 
@@ -164,7 +165,10 @@
           locale: "en-US",
         });
 
-        const paymentMethods = await sdk.findEligibleMethods();
+        const paymentMethods = await sdk.findEligibleMethods({
+          amount: currentTotal.toFixed(2),
+          currency: "USD"
+        });
 
         if (!paymentMethods.isEligible("advanced_cards")) {
           document.getElementById("pay-button").textContent = "Card payments unavailable";
@@ -172,16 +176,16 @@
           return;
         }
 
-        const cardSession = sdk.createCardFieldsOneTimePaymentSession();
+        // Pass createOrder as a callback into the session
+        const cardSession = sdk.createCardFieldsOneTimePaymentSession({
+          createOrder: () => createOrder()
+        });
 
         const numberField = cardSession.createCardFieldsComponent({
           type: "number",
           placeholder: "Card number",
           style: {
-            input: {
-              fontSize: "16px",
-              fontFamily: "system-ui"
-            }
+            input: { fontSize: "16px", fontFamily: "system-ui" }
           }
         });
 
@@ -189,10 +193,7 @@
           type: "expiry",
           placeholder: "MM/YY",
           style: {
-            input: {
-              fontSize: "16px",
-              fontFamily: "system-ui"
-            }
+            input: { fontSize: "16px", fontFamily: "system-ui" }
           }
         });
 
@@ -200,10 +201,7 @@
           type: "cvv",
           placeholder: "CVV",
           style: {
-            input: {
-              fontSize: "16px",
-              fontFamily: "system-ui"
-            }
+            input: { fontSize: "16px", fontFamily: "system-ui" }
           }
         });
 
