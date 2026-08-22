@@ -35,7 +35,6 @@
 
   <h2>Checkout – Gaming Subscription</h2>
 
-  <!-- Quantity Selector -->
   <label>
     Subscription Length
     <select id="sub-length">
@@ -54,7 +53,6 @@
 
   <p>Total: <strong id="total-display">$10.00</strong></p>
 
-  <!-- Billing Section -->
   <div id="billing-section">
     <h3>Billing Info</h3>
 
@@ -82,7 +80,6 @@
 
   <h3>Card Details</h3>
 
-  <!-- v6 card field containers — must have defined height via .card-field -->
   <div class="card-field" id="paypal-card-fields-number"></div>
   <div class="card-field" id="paypal-card-fields-expiry"></div>
   <div class="card-field" id="paypal-card-fields-cvv"></div>
@@ -91,17 +88,17 @@
     Pay Now
   </button>
 
-  <!-- PayPal JS SDK v6 — sandbox -->
+  <!-- PayPal JS SDK v6 — LIVE -->
   <script
     async
-    src="https://www.sandbox.paypal.com/web-sdk/v6/core"
+    src="https://www.paypal.com/web-sdk/v6/core"
     onload="onPayPalWebSdkLoaded()">
   </script>
 
   <script>
-    let currentTotal = 10.00;
+    const BACKEND_URL = "https://paypal-backend-ni4v.onrender.com";
 
-    // ── Amount selector ───────────────────────────────────────────────────────
+    let currentTotal = 10.00;
 
     document.getElementById("sub-length").addEventListener("change", function () {
       const val = this.value;
@@ -121,8 +118,6 @@
       document.getElementById("total-display").textContent = "$" + currentTotal.toFixed(2);
     });
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
     function getBillingData() {
       const name = document.getElementById("bill-name").value.trim();
       const country = document.getElementById("bill-country").value;
@@ -135,12 +130,11 @@
       return { name, country_code: country };
     }
 
-    // createOrder calls your Flask backend and returns the raw order ID string
     async function createOrder() {
       const billing = getBillingData();
       if (!billing) throw new Error("Billing data missing");
 
-      const res = await fetch("/api/create-order", {
+      const res = await fetch(`${BACKEND_URL}/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -149,24 +143,22 @@
         })
       });
       const data = await res.json();
-      return data.id; // raw string — passed directly to cardSession.submit()
+      return data.id;
     }
 
-    async function captureOrder(orderId) {
-      const res = await fetch("/api/capture-order", {
+    async function captureOrder(orderID) {
+      const res = await fetch(`${BACKEND_URL}/capture-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId })
+        body: JSON.stringify({ orderID })
       });
       return res.json();
     }
 
-    // ── SDK init ──────────────────────────────────────────────────────────────
-
     async function onPayPalWebSdkLoaded() {
       try {
         const sdk = await window.paypal.createInstance({
-          clientId: "BAAtcs22ZtjAU8gu6J3LfBuNHhGqIvBsUeR6_RFYOpkozzFXXfTcK9POjAmm8ijuCw20vfwAHXcdEpuH7w",
+          clientId: "YOUR_LIVE_CLIENT_ID_HERE",
           components: ["card-fields"],
           pageType: "checkout",
           locale: "en-US",
@@ -179,8 +171,6 @@
           document.getElementById("pay-button").disabled = true;
           return;
         }
-
-        // ── Card Fields setup ─────────────────────────────────────────────────
 
         const cardSession = sdk.createCardFieldsOneTimePaymentSession();
 
@@ -205,8 +195,6 @@
         document.querySelector("#paypal-card-fields-number").appendChild(numberField);
         document.querySelector("#paypal-card-fields-expiry").appendChild(expiryField);
         document.querySelector("#paypal-card-fields-cvv").appendChild(cvvField);
-
-        // ── Pay button ────────────────────────────────────────────────────────
 
         document.getElementById("pay-button").addEventListener("click", async () => {
           try {
