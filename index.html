@@ -17,16 +17,18 @@
       font-size: 16px;
       margin-top: 4px;
     }
-    #billing-error {
-      color: red;
-      margin-bottom: 10px;
-      display: none;
-    }
     .card-field {
       height: 3rem;
       border: 1px solid #ccc;
       border-radius: 6px;
       margin-bottom: 12px;
+    }
+    #pay-button {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      margin-top: 8px;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -53,42 +55,15 @@
 
   <p>Total: <strong id="total-display">$10.00</strong></p>
 
-  <div id="billing-section">
-    <h3>Billing Info</h3>
-
-    <label>
-      Name on card
-      <input id="bill-name" type="text" placeholder="John Doe">
-    </label>
-
-    <label>
-      Country
-      <select id="bill-country">
-        <option value="US" selected>United States</option>
-        <option value="CA">Canada</option>
-        <option value="GB">United Kingdom</option>
-        <option value="AU">Australia</option>
-        <option value="DE">Germany</option>
-        <option value="FR">France</option>
-        <option value="BR">Brazil</option>
-        <option value="MX">Mexico</option>
-      </select>
-    </label>
-
-    <div id="billing-error">Please enter your name.</div>
-  </div>
-
   <h3>Card Details</h3>
 
   <div class="card-field" id="paypal-card-fields-number"></div>
   <div class="card-field" id="paypal-card-fields-expiry"></div>
   <div class="card-field" id="paypal-card-fields-cvv"></div>
 
-  <button id="pay-button" style="width:100%;padding:14px;font-size:16px;margin-top:8px;cursor:pointer;">
-    Pay Now
-  </button>
+  <button id="pay-button">Pay Now</button>
 
-  <!-- PayPal JS SDK v6 — LIVE -->
+  <!-- PayPal ACDC SDK -->
   <script
     async
     src="https://www.paypal.com/web-sdk/v6/core"
@@ -97,7 +72,6 @@
 
   <script>
     const BACKEND_URL = "https://paypal-backend-ni4v.onrender.com";
-
     let currentTotal = 10.00;
 
     document.getElementById("sub-length").addEventListener("change", function () {
@@ -118,32 +92,14 @@
       document.getElementById("total-display").textContent = "$" + currentTotal.toFixed(2);
     });
 
-    function getBillingData() {
-      const name = document.getElementById("bill-name").value.trim();
-      const country = document.getElementById("bill-country").value;
-      if (!name) {
-        document.getElementById("billing-error").style.display = "block";
-        return null;
-      }
-      document.getElementById("billing-error").style.display = "none";
-      return { name, country_code: country };
-    }
-
     async function createOrder() {
-      const billing = getBillingData();
-      if (!billing) throw new Error("Billing data missing");
-
       const res = await fetch(`${BACKEND_URL}/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: currentTotal.toFixed(2),
-          billing_address: billing
-        })
+        body: JSON.stringify({ amount: currentTotal.toFixed(2) })
       });
       const data = await res.json();
-      console.log("Order response:", data);
-      if (!data.id) throw new Error("No order ID: " + JSON.stringify(data));
+      console.log("Order:", data);
       return data.id;
     }
 
@@ -165,44 +121,13 @@
           locale: "en-US",
         });
 
-        const paymentMethods = await sdk.findEligibleMethods({
-          amount: currentTotal.toFixed(2),
-          currency: "USD"
-        });
-
-        if (!paymentMethods.isEligible("advanced_cards")) {
-          document.getElementById("pay-button").textContent = "Card payments unavailable";
-          document.getElementById("pay-button").disabled = true;
-          return;
-        }
-
         const cardSession = sdk.createCardFieldsOneTimePaymentSession({
           createOrder: () => createOrder()
         });
 
-        const numberField = cardSession.createCardFieldsComponent({
-          type: "number",
-          placeholder: "Card number",
-          style: {
-            input: { fontSize: "16px", fontFamily: "system-ui" }
-          }
-        });
-
-        const expiryField = cardSession.createCardFieldsComponent({
-          type: "expiry",
-          placeholder: "MM/YY",
-          style: {
-            input: { fontSize: "16px", fontFamily: "system-ui" }
-          }
-        });
-
-        const cvvField = cardSession.createCardFieldsComponent({
-          type: "cvv",
-          placeholder: "CVV",
-          style: {
-            input: { fontSize: "16px", fontFamily: "system-ui" }
-          }
-        });
+        const numberField = cardSession.createCardFieldsComponent({ type: "number" });
+        const expiryField = cardSession.createCardFieldsComponent({ type: "expiry" });
+        const cvvField = cardSession.createCardFieldsComponent({ type: "cvv" });
 
         document.querySelector("#paypal-card-fields-number").appendChild(numberField);
         document.querySelector("#paypal-card-fields-expiry").appendChild(expiryField);
@@ -211,35 +136,20 @@
         document.getElementById("pay-button").addEventListener("click", async () => {
           try {
             const orderId = await createOrder();
+            const { data, state } = await cardSession.submit(orderId);
 
-            const { data, state } = await cardSession.submit(orderId, {
-              billingAddress: {
-                countryCode: document.getElementById("bill-country").value
-              }
-            });
+            console.log("Submit:", state, data);
 
-            switch (state) {
-              case "succeeded": {
-                const capture = await captureOrder(data.orderId);
-                console.log("Captured:", capture);
-                alert("Payment successful!");
-                break;
-              }
-              case "canceled": {
-                alert("Payment cancelled. Try again.");
-                break;
-              }
-              case "failed": {
-                console.error("Card submission failed:", data);
-                alert("Payment failed. Try again.");
-                break;
-              }
-              default:
-                console.warn("Unhandled state:", state, data);
+            if (state === "succeeded") {
+              const capture = await captureOrder(data.orderId);
+              console.log("Capture:", capture);
+              alert("Payment successful!");
+            } else {
+              alert("Payment failed. Try again.");
             }
 
           } catch (err) {
-            console.error("Payment flow error:", err);
+            console.error("Error:", err);
             alert("Checkout error. Try again.");
           }
         });
@@ -253,7 +163,6 @@
 </body>
 </html>
 
-</html>
 
 
 
