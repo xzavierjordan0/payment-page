@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>ACDC Checkout</title>
+  <title>Checkout – Gaming Subscription</title>
   <style>
     body {
       font-family: system-ui, sans-serif;
@@ -28,11 +28,16 @@
       border-radius: 6px;
       margin-bottom: 12px;
     }
+    #pay-button {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      margin-top: 8px;
+      cursor: pointer;
+    }
   </style>
 </head>
-
 <body>
-
   <h2>Checkout – Gaming Subscription</h2>
 
   <label>
@@ -80,42 +85,40 @@
 
   <h3>Card Details</h3>
 
-  <div class="card-field" id="paypal-card-fields-number"></div>
-  <div class="card-field" id="paypal-card-fields-expiry"></div>
-  <div class="card-field" id="paypal-card-fields-cvv"></div>
+  <div class="card-field" id="card-number"></div>
+  <div class="card-field" id="card-expiry"></div>
+  <div class="card-field" id="card-cvv"></div>
 
-  <button id="pay-button" style="width:100%;padding:14px;font-size:16px;margin-top:8px;cursor:pointer;">
-    Pay Now
-  </button>
+  <button id="pay-button">Pay Now</button>
 
-  <!-- PayPal JS SDK v6 — LIVE -->
-  <script
-    async
-    src="https://www.paypal.com/web-sdk/v6/core"
-    onload="onPayPalWebSdkLoaded()">
-  </script>
+  <!-- PayPal JS SDK – Checkout + Card Fields -->
+  <script src="https://www.paypal.com/sdk/js?client-id=BAAtcs22ZtjAU8gu6J3LfBuNHhGqIvBsUeR6_RFYOpkozzFXXfTcK9POjAmm8ijuCw20vfwAHXcdEpuH7w&components=buttons,card-fields&currency=USD&intent=capture"></script>
 
   <script>
     const BACKEND_URL = "https://paypal-backend-ni4v.onrender.com";
-
     let currentTotal = 10.00;
 
-    document.getElementById("sub-length").addEventListener("change", function () {
-      const val = this.value;
+    const subSelect = document.getElementById("sub-length");
+    const customLabel = document.getElementById("custom-amount-label");
+    const customInput = document.getElementById("custom-amount");
+    const totalDisplay = document.getElementById("total-display");
+
+    subSelect.addEventListener("change", () => {
+      const val = subSelect.value;
       if (val === "custom") {
-        document.getElementById("custom-amount-label").style.display = "block";
+        customLabel.style.display = "block";
         currentTotal = 0;
-        document.getElementById("total-display").textContent = "$0.00";
+        totalDisplay.textContent = "$0.00";
       } else {
-        document.getElementById("custom-amount-label").style.display = "none";
+        customLabel.style.display = "none";
         currentTotal = parseFloat(val);
-        document.getElementById("total-display").textContent = "$" + currentTotal.toFixed(2);
+        totalDisplay.textContent = "$" + currentTotal.toFixed(2);
       }
     });
 
-    document.getElementById("custom-amount").addEventListener("input", function () {
-      currentTotal = parseFloat(this.value || 0);
-      document.getElementById("total-display").textContent = "$" + currentTotal.toFixed(2);
+    customInput.addEventListener("input", () => {
+      currentTotal = parseFloat(customInput.value || 0);
+      totalDisplay.textContent = "$" + currentTotal.toFixed(2);
     });
 
     function getBillingData() {
@@ -141,6 +144,7 @@
           billing_address: billing
         })
       });
+
       const data = await res.json();
       console.log("Order response:", data);
       if (!data.id) throw new Error("No order ID: " + JSON.stringify(data));
@@ -156,100 +160,49 @@
       return res.json();
     }
 
-    async function onPayPalWebSdkLoaded() {
-      try {
-        const sdk = await window.paypal.createInstance({
-          clientId: "BAAtcs22ZtjAU8gu6J3LfBuNHhGqIvBsUeR6_RFYOpkozzFXXfTcK9POjAmm8ijuCw20vfwAHXcdEpuH7w",
-          components: ["card-fields"],
-          pageType: "checkout",
-          locale: "en-US",
-        });
-
-        const paymentMethods = await sdk.findEligibleMethods({
-          amount: currentTotal.toFixed(2),
-          currency: "USD"
-        });
-
-        if (!paymentMethods.isEligible("advanced_cards")) {
-          document.getElementById("pay-button").textContent = "Card payments unavailable";
-          document.getElementById("pay-button").disabled = true;
-          return;
+    // Initialize Card Fields via Checkout SDK
+    document.addEventListener("DOMContentLoaded", () => {
+      const cardFields = paypal.CardFields({
+        style: {
+          input: { "font-size": "16px", "font-family": "system-ui" }
         }
+      });
 
-        // Pass createOrder as a callback into the session
-        const cardSession = sdk.createCardFieldsOneTimePaymentSession({
-          createOrder: () => createOrder()
-        });
+      cardFields.render({
+        number: "#card-number",
+        expirationDate: "#card-expiry",
+        securityCode: "#card-cvv"
+      });
 
-        const numberField = cardSession.createCardFieldsComponent({
-          type: "number",
-          placeholder: "Card number",
-          style: {
-            input: { fontSize: "16px", fontFamily: "system-ui" }
+      document.getElementById("pay-button").addEventListener("click", async () => {
+        try {
+          const orderId = await createOrder();
+
+          const result = await cardFields.submit({
+            contingencies: ["SCA_WHEN_REQUIRED"],
+            billingDetails: {
+              name: document.getElementById("bill-name").value,
+              countryCode: document.getElementById("bill-country").value
+            },
+            orderId
+          });
+
+          console.log("CardFields submit result:", result);
+
+          if (result && result.liabilityShift && result.liabilityShift === "POSSIBLE") {
+            const capture = await captureOrder(orderId);
+            console.log("Captured:", capture);
+            alert("Payment successful!");
+          } else {
+            alert("Payment failed or requires additional authentication.");
           }
-        });
-
-        const expiryField = cardSession.createCardFieldsComponent({
-          type: "expiry",
-          placeholder: "MM/YY",
-          style: {
-            input: { fontSize: "16px", fontFamily: "system-ui" }
-          }
-        });
-
-        const cvvField = cardSession.createCardFieldsComponent({
-          type: "cvv",
-          placeholder: "CVV",
-          style: {
-            input: { fontSize: "16px", fontFamily: "system-ui" }
-          }
-        });
-
-        document.querySelector("#paypal-card-fields-number").appendChild(numberField);
-        document.querySelector("#paypal-card-fields-expiry").appendChild(expiryField);
-        document.querySelector("#paypal-card-fields-cvv").appendChild(cvvField);
-
-        document.getElementById("pay-button").addEventListener("click", async () => {
-          try {
-            const orderId = await createOrder();
-
-            const { data, state } = await cardSession.submit(orderId, {
-              billingAddress: {
-                countryCode: document.getElementById("bill-country").value
-              }
-            });
-
-            switch (state) {
-              case "succeeded": {
-                const capture = await captureOrder(data.orderId);
-                console.log("Captured:", capture);
-                alert("Payment successful!");
-                break;
-              }
-              case "canceled": {
-                alert("Payment cancelled. You can try again.");
-                break;
-              }
-              case "failed": {
-                console.error("Card submission failed:", data);
-                alert("Payment failed. Please check your card details.");
-                break;
-              }
-              default:
-                console.warn("Unhandled state:", state, data);
-            }
-
-          } catch (err) {
-            console.error("Payment flow error:", err);
-            alert("Checkout error. Please try again.");
-          }
-        });
-
-      } catch (err) {
-        console.error("SDK init failed:", err);
-      }
-    }
+        } catch (err) {
+          console.error("Payment flow error:", err);
+          alert("Checkout error. Please try again.");
+        }
+      });
+    });
   </script>
-
 </body>
 </html>
+
