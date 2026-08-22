@@ -1,171 +1,254 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Hosting Kit</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-        body { background: #f5f5f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-        .payment-container { background: #fff; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); max-width: 400px; width: 100%; padding: 30px; }
-        .logo { text-align: center; margin-bottom: 24px; }
-        .logo h1 { font-size: 20px; color: #003087; font-weight: 600; }
-        .logo p { font-size: 13px; color: #666; margin-top: 4px; }
-        .field-group { margin-bottom: 16px; }
-        .field-group label { display: block; font-size: 13px; font-weight: 500; color: #333; margin-bottom: 6px; }
-        .paypal-field { border: 1px solid #cbd2d9; border-radius: 6px; padding: 12px; width: 100%; min-height: 20px; transition: border 0.2s; }
-        .paypal-field-focus { border-color: #0070ba; box-shadow: 0 0 0 1px #0070ba; }
-        .paypal-field-error { border-color: #c72e2e; }
-        .row { display: flex; gap: 12px; }
-        .row > div { flex: 1; }
-        #pay-button { width: 100%; background: #0070ba; color: white; border: none; border-radius: 6px; padding: 14px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; transition: background 0.2s; }
-        #pay-button:hover { background: #005ea6; }
-        #pay-button:disabled { background: #ccc; cursor: not-allowed; }
-        .amount-display { text-align: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #eee; }
-        .amount-display .label { font-size: 13px; color: #666; }
-        .amount-display .amount { font-size: 28px; font-weight: 700; color: #222; margin-top: 4px; }
-        .error-msg { color: #c72e2e; font-size: 13px; margin-top: 8px; display: none; }
-        .success-msg { color: #2e7d32; font-size: 14px; text-align: center; margin-top: 12px; display: none; }
-        .secure-badge { text-align: center; margin-top: 16px; font-size: 12px; color: #999; }
-
-        /* Custom amount input */
-        .amount-wrapper { display: none; }
-        .amount-wrapper.show { display: block; }
-        #custom-amount { width: 100%; padding: 10px; border: 1px solid #cbd2d9; border-radius: 6px; font-size: 16px; margin-bottom: 12px; }
-        .edit-amount-btn { background: none; border: none; color: #0070ba; font-size: 12px; cursor: pointer; margin-bottom: 12px; }
-    </style>
+  <meta charset="UTF-8">
+  <title>ACDC Checkout</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+    label { display: block; margin-bottom: 12px; }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      margin-top: 4px;
+    }
+    #billing-error {
+      color: red;
+      margin-bottom: 10px;
+      display: none;
+    }
+    .card-field {
+      height: 3rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
+  </style>
 </head>
+
 <body>
-    <div class="payment-container">
-        <div class="logo">
-            <h1>🔒 Secure Checkout</h1>
-            <p>Powered by PayPal</p>
-        </div>
 
-        <div class="amount-display">
-            <div class="label">Amount Due</div>
-            <div class="amount" id="display-amount">$50.00</div>
-        </div>
+  <h2>Checkout – Gaming Subscription</h2>
 
-        <div class="amount-wrapper" id="amount-wrapper">
-            <input type="number" id="custom-amount" placeholder="Enter amount" step="0.01" min="1" value="50">
-            <button id="set-amount-btn" style="width:100%;background:#28a745;color:white;border:none;border-radius:6px;padding:10px;font-weight:600;cursor:pointer;margin-bottom:12px;">Set Amount</button>
-        </div>
+  <!-- Quantity Selector -->
+  <label>
+    Subscription Length
+    <select id="sub-length">
+      <option value="10">1 Month – $10</option>
+      <option value="25">3 Months – $25</option>
+      <option value="45">6 Months – $45</option>
+      <option value="80">12 Months – $80</option>
+      <option value="custom">Custom Amount</option>
+    </select>
+  </label>
 
-        <button class="edit-amount-btn" id="edit-amount">Change amount →</button>
+  <label id="custom-amount-label" style="display:none;">
+    Enter Custom Amount ($)
+    <input id="custom-amount" type="number" min="1" placeholder="Enter amount">
+  </label>
 
-        <div class="field-group">
-            <label>Card Number</label>
-            <div id="card-number" class="paypal-field"></div>
-        </div>
+  <p>Total: <strong id="total-display">$10.00</strong></p>
 
-        <div class="row">
-            <div class="field-group">
-                <label>Expiry</label>
-                <div id="card-expiry" class="paypal-field"></div>
-            </div>
-            <div class="field-group">
-                <label>CVV</label>
-                <div id="card-cvv" class="paypal-field"></div>
-            </div>
-        </div>
+  <!-- Billing Section -->
+  <div id="billing-section">
+    <h3>Billing Info</h3>
 
-        <button id="pay-button" disabled>Pay Now</button>
+    <label>
+      Name on card
+      <input id="bill-name" type="text" placeholder="John Doe">
+    </label>
 
-        <div class="error-msg" id="error-message"></div>
-        <div class="success-msg" id="success-message">✓ Payment successful! Check your PayPal balance.</div>
+    <label>
+      Country
+      <select id="bill-country">
+        <option value="US" selected>United States</option>
+        <option value="CA">Canada</option>
+        <option value="GB">United Kingdom</option>
+        <option value="AU">Australia</option>
+        <option value="DE">Germany</option>
+        <option value="FR">France</option>
+        <option value="BR">Brazil</option>
+        <option value="MX">Mexico</option>
+      </select>
+    </label>
 
-        <div class="secure-badge">Your payment is secured by PayPal encryption</div>
-    </div>
+    <div id="billing-error">Please enter your name.</div>
+  </div>
 
-    <!-- Replace YOUR_CLIENT_ID below -->
-    <script src="https://www.paypal.com/sdk/js?client-id=BAAe2tk0t2p_fmA1lmp1UX-E5QsJUsuJ_1LgSCR_xirfpNEQ4RHVgWqAtQ4TBqowJmlIGJ5I0WP3-bFlVQ&components=hosted-fields&enable-funding=card&intent=capture&currency=USD"></script>
+  <h3>Card Details</h3>
 
+  <!-- v6 card field containers — must have defined height via .card-field -->
+  <div class="card-field" id="paypal-card-fields-number"></div>
+  <div class="card-field" id="paypal-card-fields-expiry"></div>
+  <div class="card-field" id="paypal-card-fields-cvv"></div>
 
-	<script>
-		let currentAmount = "50.00";
+  <button id="pay-button" style="width:100%;padding:14px;font-size:16px;margin-top:8px;cursor:pointer;">
+    Pay Now
+  </button>
 
-		document.getElementById('edit-amount').addEventListener('click', () => {
-			document.getElementById('amount-wrapper').classList.toggle('show');
-		});
+  <!-- PayPal JS SDK v6 — sandbox -->
+  <script
+    async
+    src="https://www.sandbox.paypal.com/web-sdk/v6/core"
+    onload="onPayPalWebSdkLoaded()">
+  </script>
 
-		document.getElementById('set-amount-btn').addEventListener('click', () => {
-			let val = document.getElementById('custom-amount').value;
-			if (val && parseFloat(val) > 0) {
-				currentAmount = parseFloat(val).toFixed(2);
-				document.getElementById('display-amount').textContent = '$' + currentAmount;
-				document.getElementById('amount-wrapper').classList.remove('show');
-			}
-		});
+  <script>
+    let currentTotal = 10.00;
 
-		const BACKEND = "https://paypal-backend-ni4v.onrender.com"; // ← Replace with Render URL
+    // ── Amount selector ───────────────────────────────────────────────────────
 
-		if (paypal.HostedFields && paypal.HostedFields.isEligible()) {
-			paypal.HostedFields.render({
-				styles: {
-					'input': {
-						'font-size': '15px',
-						'font-family': '-apple-system, BlinkMacSystemFont, sans-serif',
-						'color': '#222'
-					},
-					'.invalid': { 'color': '#c72e2e' }
-				},
-				fields: {
-					number: { selector: '#card-number', placeholder: '1234 5678 9012 3456' },
-					cvv: { selector: '#card-cvv', placeholder: '123' },
-					expirationDate: { selector: '#card-expiry', placeholder: 'MM/YY' }
-				}
-			}).then(hostedFields => {
-				const payBtn = document.getElementById('pay-button');
+    document.getElementById("sub-length").addEventListener("change", function () {
+      const val = this.value;
+      if (val === "custom") {
+        document.getElementById("custom-amount-label").style.display = "block";
+        currentTotal = 0;
+        document.getElementById("total-display").textContent = "$0.00";
+      } else {
+        document.getElementById("custom-amount-label").style.display = "none";
+        currentTotal = parseFloat(val);
+        document.getElementById("total-display").textContent = "$" + currentTotal.toFixed(2);
+      }
+    });
 
-				hostedFields.on('validityChange', () => {
-					const state = hostedFields.getState();
-					const allValid = Object.values(state.fields).every(f => f.isValid);
-					payBtn.disabled = !allValid;
-				});
+    document.getElementById("custom-amount").addEventListener("input", function () {
+      currentTotal = parseFloat(this.value || 0);
+      document.getElementById("total-display").textContent = "$" + currentTotal.toFixed(2);
+    });
 
-				payBtn.addEventListener('click', () => {
-					payBtn.disabled = true;
-					payBtn.textContent = 'Processing...';
-					document.getElementById('error-message').style.display = 'none';
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
-					hostedFields.submit({ contingencies: ['3D_SECURE'] })
-						.then(payload => {
+    function getBillingData() {
+      const name = document.getElementById("bill-name").value.trim();
+      const country = document.getElementById("bill-country").value;
 
-							return fetch(`${BACKEND}/create-order`, {
-								method: "POST",
-								headers: { "Content-Type": "application/json" },
-								body: JSON.stringify({ amount: currentAmount })
-							})
-							.then(res => res.json())
-							.then(order => {
+      if (!name) {
+        document.getElementById("billing-error").style.display = "block";
+        return null;
+      }
+      document.getElementById("billing-error").style.display = "none";
+      return { name, country_code: country };
+    }
 
-								return fetch(`${BACKEND}/capture-order`, {
-									method: "POST",
-									headers: { "Content-Type": "application/json" },
-									body: JSON.stringify({ orderID: order.id })
-								});
-							});
-						})
-						.then(res => res.json())
-						.then(data => {
-							document.getElementById('success-message').style.display = 'block';
-							payBtn.style.display = 'none';
-						})
-						.catch(err => {
-							document.getElementById('error-message').textContent =
-								'Payment failed. Please check your card.';
-							document.getElementById('error-message').style.display = 'block';
-							payBtn.disabled = false;
-							payBtn.textContent = 'Pay Now';
-						});
-				});
-			});
-		} else {
-			document.getElementById('pay-button').textContent = 'Card payments unavailable';
-			document.getElementById('pay-button').disabled = true;
-		}
-	</script>
+    // createOrder calls your Flask backend and returns the raw order ID string
+    async function createOrder() {
+      const billing = getBillingData();
+      if (!billing) throw new Error("Billing data missing");
+
+      const res = await fetch("/api/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: currentTotal.toFixed(2),
+          billing_address: billing
+        })
+      });
+      const data = await res.json();
+      return data.id; // raw string — passed directly to cardSession.submit()
+    }
+
+    async function captureOrder(orderId) {
+      const res = await fetch("/api/capture-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId })
+      });
+      return res.json();
+    }
+
+    // ── SDK init ──────────────────────────────────────────────────────────────
+
+    async function onPayPalWebSdkLoaded() {
+      try {
+        const sdk = await window.paypal.createInstance({
+          clientId: "BAAtcs22ZtjAU8gu6J3LfBuNHhGqIvBsUeR6_RFYOpkozzFXXfTcK9POjAmm8ijuCw20vfwAHXcdEpuH7w",
+          components: ["card-fields"],
+          pageType: "checkout",
+          locale: "en-US",
+        });
+
+        const paymentMethods = await sdk.findEligibleMethods();
+
+        if (!paymentMethods.isEligible("advanced_cards")) {
+          document.getElementById("pay-button").textContent = "Card payments unavailable";
+          document.getElementById("pay-button").disabled = true;
+          return;
+        }
+
+        // ── Card Fields setup ─────────────────────────────────────────────────
+
+        const cardSession = sdk.createCardFieldsOneTimePaymentSession();
+
+        const numberField = cardSession.createCardFieldsComponent({
+          type: "number",
+          placeholder: "Card number",
+          style: { fontSize: "16px", fontFamily: "system-ui" }
+        });
+
+        const expiryField = cardSession.createCardFieldsComponent({
+          type: "expiry",
+          placeholder: "MM/YY",
+          style: { fontSize: "16px", fontFamily: "system-ui" }
+        });
+
+        const cvvField = cardSession.createCardFieldsComponent({
+          type: "cvv",
+          placeholder: "CVV",
+          style: { fontSize: "16px", fontFamily: "system-ui" }
+        });
+
+        document.querySelector("#paypal-card-fields-number").appendChild(numberField);
+        document.querySelector("#paypal-card-fields-expiry").appendChild(expiryField);
+        document.querySelector("#paypal-card-fields-cvv").appendChild(cvvField);
+
+        // ── Pay button ────────────────────────────────────────────────────────
+
+        document.getElementById("pay-button").addEventListener("click", async () => {
+          try {
+            const orderId = await createOrder();
+
+            const { data, state } = await cardSession.submit(orderId, {
+              billingAddress: {
+                countryCode: document.getElementById("bill-country").value
+              }
+            });
+
+            switch (state) {
+              case "succeeded": {
+                const capture = await captureOrder(data.orderId);
+                console.log("Captured:", capture);
+                alert("Payment successful!");
+                break;
+              }
+              case "canceled": {
+                alert("Payment cancelled. You can try again.");
+                break;
+              }
+              case "failed": {
+                console.error("Card submission failed:", data);
+                alert("Payment failed. Please check your card details.");
+                break;
+              }
+              default:
+                console.warn("Unhandled state:", state, data);
+            }
+
+          } catch (err) {
+            console.error("Payment flow error:", err);
+            alert("Checkout error. Please try again.");
+          }
+        });
+
+      } catch (err) {
+        console.error("SDK init failed:", err);
+      }
+    }
+  </script>
 
 </body>
 </html>
