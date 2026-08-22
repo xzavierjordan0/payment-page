@@ -17,11 +17,6 @@
       font-size: 16px;
       margin-top: 4px;
     }
-    #billing-error {
-      color: red;
-      margin-bottom: 10px;
-      display: none;
-    }
     .card-field {
       height: 3rem;
       border: 1px solid #ccc;
@@ -37,7 +32,9 @@
     }
   </style>
 </head>
+
 <body>
+
   <h2>Checkout – Gaming Subscription</h2>
 
   <label>
@@ -58,31 +55,6 @@
 
   <p>Total: <strong id="total-display">$10.00</strong></p>
 
-  <div id="billing-section">
-    <h3>Billing Info</h3>
-
-    <label>
-      Name on card
-      <input id="bill-name" type="text" placeholder="John Doe">
-    </label>
-
-    <label>
-      Country
-      <select id="bill-country">
-        <option value="US" selected>United States</option>
-        <option value="CA">Canada</option>
-        <option value="GB">United Kingdom</option>
-        <option value="AU">Australia</option>
-        <option value="DE">Germany</option>
-        <option value="FR">France</option>
-        <option value="BR">Brazil</option>
-        <option value="MX">Mexico</option>
-      </select>
-    </label>
-
-    <div id="billing-error">Please enter your name.</div>
-  </div>
-
   <h3>Card Details</h3>
 
   <div class="card-field" id="card-number"></div>
@@ -91,8 +63,8 @@
 
   <button id="pay-button">Pay Now</button>
 
-  <!-- PayPal JS SDK – Checkout + Card Fields -->
-  <script src="https://www.paypal.com/sdk/js?client-id=BAAtcs22ZtjAU8gu6J3LfBuNHhGqIvBsUeR6_RFYOpkozzFXXfTcK9POjAmm8ijuCw20vfwAHXcdEpuH7w&components=buttons,card-fields&currency=USD&intent=capture"></script>
+  <!-- PayPal Checkout SDK + Card Fields -->
+  <script src="https://www.paypal.com/sdk/js?client-id=BAAtcs22ZtjAU8gu6J3LfBuNHhGqIvBsUeR6_RFYOpkozzFXXfTcK9POjAmm8ijuCw20vfwAHXcdEpuH7w&components=card-fields&intent=capture&currency=USD"></script>
 
   <script>
     const BACKEND_URL = "https://paypal-backend-ni4v.onrender.com";
@@ -121,33 +93,17 @@
       totalDisplay.textContent = "$" + currentTotal.toFixed(2);
     });
 
-    function getBillingData() {
-      const name = document.getElementById("bill-name").value.trim();
-      const country = document.getElementById("bill-country").value;
-      if (!name) {
-        document.getElementById("billing-error").style.display = "block";
-        return null;
-      }
-      document.getElementById("billing-error").style.display = "none";
-      return { name, country_code: country };
-    }
-
     async function createOrder() {
-      const billing = getBillingData();
-      if (!billing) throw new Error("Billing data missing");
-
       const res = await fetch(`${BACKEND_URL}/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: currentTotal.toFixed(2),
-          billing_address: billing
-        })
+        body: JSON.stringify({ amount: currentTotal.toFixed(2) })
       });
 
       const data = await res.json();
-      console.log("Order response:", data);
-      if (!data.id) throw new Error("No order ID: " + JSON.stringify(data));
+      console.log("Order:", data);
+
+      if (!data.id) throw new Error("Order creation failed");
       return data.id;
     }
 
@@ -160,7 +116,6 @@
       return res.json();
     }
 
-    // Initialize Card Fields via Checkout SDK
     document.addEventListener("DOMContentLoaded", () => {
       const cardFields = paypal.CardFields({
         style: {
@@ -179,30 +134,25 @@
           const orderId = await createOrder();
 
           const result = await cardFields.submit({
-            contingencies: ["SCA_WHEN_REQUIRED"],
-            billingDetails: {
-              name: document.getElementById("bill-name").value,
-              countryCode: document.getElementById("bill-country").value
-            },
-            orderId
+            orderId,
+            contingencies: ["SCA_WHEN_REQUIRED"]
           });
 
-          console.log("CardFields submit result:", result);
+          console.log("Submit result:", result);
 
-          if (result && result.liabilityShift && result.liabilityShift === "POSSIBLE") {
-            const capture = await captureOrder(orderId);
-            console.log("Captured:", capture);
-            alert("Payment successful!");
-          } else {
-            alert("Payment failed or requires additional authentication.");
-          }
+          const capture = await captureOrder(orderId);
+          console.log("Capture:", capture);
+
+          alert("Payment successful!");
         } catch (err) {
-          console.error("Payment flow error:", err);
-          alert("Checkout error. Please try again.");
+          console.error("Checkout error:", err);
+          alert("Payment failed.");
         }
       });
     });
   </script>
+
 </body>
 </html>
+
 
