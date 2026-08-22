@@ -177,19 +177,34 @@
         const numberField = cardSession.createCardFieldsComponent({
           type: "number",
           placeholder: "Card number",
-          style: { fontSize: "16px", fontFamily: "system-ui" }
+          style: {
+            input: {
+              fontSize: "16px",
+              fontFamily: "system-ui"
+            }
+          }
         });
 
         const expiryField = cardSession.createCardFieldsComponent({
           type: "expiry",
           placeholder: "MM/YY",
-          style: { fontSize: "16px", fontFamily: "system-ui" }
+          style: {
+            input: {
+              fontSize: "16px",
+              fontFamily: "system-ui"
+            }
+          }
         });
 
         const cvvField = cardSession.createCardFieldsComponent({
           type: "cvv",
           placeholder: "CVV",
-          style: { fontSize: "16px", fontFamily: "system-ui" }
+          style: {
+            input: {
+              fontSize: "16px",
+              fontFamily: "system-ui"
+            }
+          }
         });
 
         document.querySelector("#paypal-card-fields-number").appendChild(numberField);
