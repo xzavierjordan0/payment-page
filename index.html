@@ -84,81 +84,86 @@
 
   <button id="pay-button">Pay Now</button>
 
-  <script async src="https://www.paypal.com/web-sdk/v6/core" onload="onPayPalWebSdkLoaded()"></script>
+  <script src="https://www.paypal.com/web-sdk/v6/core"></script>
 
   <script>
     const BACKEND_URL = "https://paypal-backend-ni4v.onrender.com";
     let currentTotal = 10.00;
 
-    document.getElementById("sub-length").addEventListener("change", function () {
-      const val = this.value;
-      if (val === "custom") {
-        document.getElementById("custom-amount-label").style.display = "block";
-        currentTotal = 0;
-        document.getElementById("total-display").textContent = "$0.00";
-      } else {
-        document.getElementById("custom-amount-label").style.display = "none";
-        currentTotal = parseFloat(val);
-        document.getElementById("total-display").textContent = "$" + currentTotal.toFixed(2);
-      }
-    });
+    document.addEventListener("DOMContentLoaded", () => {
 
-    document.getElementById("custom-amount").addEventListener("input", function () {
-      currentTotal = parseFloat(this.value || 0);
-      document.getElementById("total-display").textContent = "$" + currentTotal.toFixed(2);
-    });
-
-    async function createOrder() {
-      const res = await fetch(`${BACKEND_URL}/create-order`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: currentTotal.toFixed(2) })
-      });
-      const data = await res.json();
-      return data.id;
-    }
-
-    async function captureOrder(orderID) {
-      const res = await fetch(`${BACKEND_URL}/capture-order`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderID })
-      });
-      return res.json();
-    }
-
-    async function onPayPalWebSdkLoaded() {
-      const sdk = await window.paypal.createInstance({
-        clientId: "BAAlApj0QpUS9VKQNYnutXDwgf3OMDDHOoGt5NVpJNdyTzcBjFYK4wf2053lfAdG5KlUZDR8iA4ppgq5Xc",
-        components: ["card-fields"],
-        pageType: "checkout",
-        locale: "en-US",
-      });
-
-      const cardSession = sdk.createCardFieldsOneTimePaymentSession({
-        createOrder: () => createOrder()
-      });
-
-      const numberField = cardSession.createCardFieldsComponent({ type: "number" });
-      const expiryField = cardSession.createCardFieldsComponent({ type: "expiry" });
-      const cvvField = cardSession.createCardFieldsComponent({ type: "cvv" });
-
-      document.querySelector("#paypal-card-fields-number").appendChild(numberField);
-      document.querySelector("#paypal-card-fields-expiry").appendChild(expiryField);
-      document.querySelector("#paypal-card-fields-cvv").appendChild(cvvField);
-
-      document.getElementById("pay-button").addEventListener("click", async () => {
-        const orderId = await createOrder();
-        const { data, state } = await cardSession.submit(orderId);
-
-        if (state === "succeeded") {
-          const capture = await captureOrder(data.orderId);
-          alert("Payment successful!");
+      document.getElementById("sub-length").addEventListener("change", function () {
+        const val = this.value;
+        if (val === "custom") {
+          document.getElementById("custom-amount-label").style.display = "block";
+          currentTotal = 0;
+          document.getElementById("total-display").textContent = "$0.00";
         } else {
-          alert("Payment failed. Try again.");
+          document.getElementById("custom-amount-label").style.display = "none";
+          currentTotal = parseFloat(val);
+          document.getElementById("total-display").textContent = "$" + currentTotal.toFixed(2);
         }
       });
-    }
+
+      document.getElementById("custom-amount").addEventListener("input", function () {
+        currentTotal = parseFloat(this.value || 0);
+        document.getElementById("total-display").textContent = "$" + currentTotal.toFixed(2);
+      });
+
+      async function createOrder() {
+        const res = await fetch(`${BACKEND_URL}/create-order`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount: currentTotal.toFixed(2) })
+        });
+        const data = await res.json();
+        return data.id;
+      }
+
+      async function captureOrder(orderID) {
+        const res = await fetch(`${BACKEND_URL}/capture-order`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderID })
+        });
+        return res.json();
+      }
+
+      async function initACDC() {
+        const sdk = await window.paypal.createInstance({
+          clientId: "BAAlApj0QpUS9VKQNYnutXDwgf3OMDDHOoGt5NVpJNdyTzcBjFYK4wf2053lfAdG5KlUZDR8iA4ppgq5Xc",
+          components: ["card-fields"],
+          pageType: "checkout",
+          locale: "en-US",
+        });
+
+        const cardSession = sdk.createCardFieldsOneTimePaymentSession({
+          createOrder: () => createOrder()
+        });
+
+        const numberField = cardSession.createCardFieldsComponent({ type: "number" });
+        const expiryField = cardSession.createCardFieldsComponent({ type: "expiry" });
+        const cvvField = cardSession.createCardFieldsComponent({ type: "cvv" });
+
+        document.querySelector("#paypal-card-fields-number").appendChild(numberField);
+        document.querySelector("#paypal-card-fields-expiry").appendChild(expiryField);
+        document.querySelector("#paypal-card-fields-cvv").appendChild(cvvField);
+
+        document.getElementById("pay-button").addEventListener("click", async () => {
+          const orderId = await createOrder();
+          const { data, state } = await cardSession.submit(orderId);
+
+          if (state === "succeeded") {
+            const capture = await captureOrder(data.orderId);
+            alert("Payment successful!");
+          } else {
+            alert("Payment failed. Try again.");
+          }
+        });
+      }
+
+      initACDC();
+    });
   </script>
 
 </body>
