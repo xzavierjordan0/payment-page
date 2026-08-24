@@ -155,9 +155,19 @@
 
           if (state === "succeeded") {
             const capture = await captureOrder(data.orderId);
-            alert("Payment successful!");
+
+            const status =
+              capture?.status ||
+              capture?.purchase_units?.[0]?.payments?.captures?.[0]?.status;
+
+            if (status === "COMPLETED") {
+              alert("Payment successful!");
+            } else {
+              alert("Payment failed. Please try again.");
+            }
+
           } else {
-            alert("Payment failed. Try again.");
+            alert("Payment failed. Please try again.");
           }
         });
       }
